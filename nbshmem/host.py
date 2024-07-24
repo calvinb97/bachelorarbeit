@@ -1,27 +1,29 @@
 from numba import cuda
 import numpy as np
-from numba.cuda.cudadrv import driver, devicearray
+from numba.cuda.cudadrv import driver
+from numba.cuda.cudadrv.devicearray import DeviceNDArray
 from cuda.cuda import CUdeviceptr
 
 
-HEAP_SIZE = 1000000
+HEAP_SIZE = 2000000000
 
 
 class StaticHeap():
-    def __init__(self):
-        # Array der Größe HEAP_SIZE Bytes
-        self.local_heap_buf = np.zeros(HEAP_SIZE, dtype=np.int8)
-        self.shmem_heaps = array(self.local_heap_buf)
+    def __init__(self, heap_size, my_pe):
+        self.heap_size = heap_size
+        self.my_pe = my_pe
+        self.local_heap = self._alloc_local_heap()
+        self.shmem_heaps = share_devicearray(self.local_heap)
         self.offset = 0
 
-    def allocate(self, npary):
-        shape, strides, dtype = cuda.prepare_shape_strides_dtype(
-            npary.shape, npary.strides, npary.dtype, order='C')
+    def _alloc_local_heap(self):
+        # allocates self.heap_size bytes on the GPU
+        return DeviceNDArray(shape=(self.heap_size,), strides=(1,),
+                             dtype=np.int8)
 
+    def _shmem_alloc_from_heap(self, shape, strides, dtype):
         alloc_size = driver.memory_size_from_info(shape, strides, dtype.itemsize)
-
-        shmem_ary = ()
-
+        devarys = []
         for i in range(len(self.shmem_heaps)):
             buf_base = self.shmem_heaps[i]
             buf_base_adr = buf_base.__cuda_array_interface__["data"][0]
@@ -30,13 +32,32 @@ class StaticHeap():
             data = driver.MemoryPointer(cuda.current_context(),
                                         CUdeviceptr(alloc_adr),
                                         size=alloc_size, owner=None)
-            devary = devicearray.DeviceNDArray(shape=shape, strides=strides,
-                                               dtype=dtype, gpu_data=data,
-                                               stream=None)
-            shmem_ary = shmem_ary + (devary, )
-
+            devary = DeviceNDArray(shape=shape, strides=strides,
+                                   dtype=dtype, gpu_data=data)
+            devarys.append(devary)
         self.offset += alloc_size
+        return tuple(devarys)
+
+    def alloc_array(self, npary, copy=True):
+        shape, strides, dtype = cuda.prepare_shape_strides_dtype(
+            npary.shape, npary.strides, npary.dtype, order='C')
+
+        shmem_ary = self._shmem_alloc_from_heap(shape, strides, dtype)
+
+        if copy:
+            cuda.to_device(npary, to=shmem_ary[self.my_pe])
         return shmem_ary
+
+    def alloc(self, shape, nptype):
+        dtype = np.dtype(nptype)
+        if len(shape) == 1:
+            strides = (dtype.itemsize,)
+        elif len(shape) == 2:
+            strides = (dtype.itemsize * shape[1], dtype.itemsize)
+        else:
+            print("Allocation only implemented for 1D or 2D shape.")
+            return
+        return self._shmem_alloc_from_heap(shape, strides, dtype)
 
 
 class HostContext():
@@ -45,78 +66,90 @@ class HostContext():
         self.use_static_heap = static_heap
 
     def init_static_heap(self):
-        self.heap = StaticHeap()
+        self.heap = StaticHeap(HEAP_SIZE, self.mpi.Get_rank())
 
 
 ctx = HostContext()
+
+
+def share_devicearray(my_devary):
+    my_handle = my_devary.get_ipc_handle()
+    my_rank = ctx.mpi.Get_rank()
+
+    handle_list = ctx.mpi.allgather(my_handle)
+    devarys = []
+    for i, peer_handle in enumerate(handle_list):
+        if i == my_rank:
+            devarys.append(my_devary)
+        else:
+            devarys.append(peer_handle.open())
+    return tuple(devarys)
 
 
 def init(mpi_comm, static_heap=False):
     """
     Collective function that sets the device for the PE
     and may initialize a static heap.
+
+    Returns a tuple containing Numba DeviceNDArrays of all
+    peer devices sorted by PE for synchronization.
     """
     ctx.init(mpi_comm, static_heap)
     rank = mpi_comm.Get_rank()
     cuda.select_device(rank)
+    npsync = np.zeros(1, dtype=np.int64)
     if static_heap:
         ctx.init_static_heap()
-        sync = ctx.heap.allocate(np.empty(1, dtype=np.int64))
-        return sync
+        sync_shmem = ctx.heap.alloc_array(npsync)
+    else:
+        sync_shmem = array(npsync)
+    return sync_shmem
 
 
-def array(npary):
+def array(npary, copy=True):
     """
-    Collective function that allocates device memory by
-    copying the given numpy array to device. Returns a
-    tuple containing Numba DeviceArrays of all peer devices
-    sorted by PE.
-    """
-    # TODO: Für mehr als 2 Peers implementieren
+    Collective function that allocates device memory like
+    the given array. If copy is True, the given array is
+    copied to the local device array.
 
-    dary = cuda.to_device(npary)
-    handle = dary.get_ipc_handle()
-    rank = ctx.mpi.Get_rank()
-    peer = (rank+1) % 2
-    s_req = ctx.mpi.isend(handle, peer)
-    r_req = ctx.mpi.irecv(source=peer)
-    s_req.wait()
-    res = r_req.wait()
-    shmem_ary = ()
-    for i in range(2):
-        if i == ctx.mpi.Get_rank():
-            shmem_ary = shmem_ary + (dary, )
-        else:
-            shmem_ary = shmem_ary + (res.open(), )
-    return shmem_ary
-
-
-def alloc_like(npary):
-    """
-    Collective function that allocates device memory based on
-    the given numpy array but does not copy the numpy array to
-    device. Returns a tuple containing Numba DeviceArrays of all
+    Returns a tuple containing Numba DeviceNDArrays of all
     peer devices sorted by PE.
     """
     if ctx.use_static_heap:
-        return ctx.heap.allocate(npary)
+        return ctx.heap.alloc_array(npary, copy)
     else:
-        # TODO: anpassen
-        dary = cuda.to_device(npary)
-        handle = dary.get_ipc_handle()
-        rank = ctx.mpi.Get_rank()
-        peer = (rank+1) % 2
-        s_req = ctx.mpi.isend(handle, peer)
-        r_req = ctx.mpi.irecv(source=peer)
-        s_req.wait()
-        res = r_req.wait()
-        shmem_ary = ()
-        for i in range(2):
-            if i == ctx.mpi.Get_rank():
-                shmem_ary = shmem_ary + (dary, )
-            else:
-                shmem_ary = shmem_ary + (res.open(), )
-        return shmem_ary
+        if copy:
+            my_devary = cuda.to_device(npary)
+        else:
+            shape, strides, dtype = cuda.prepare_shape_strides_dtype(
+                npary.shape, npary.strides, npary.dtype, order='C')
+            my_devary = DeviceNDArray(shape=shape, strides=strides,
+                                      dtype=dtype, stream=0)
+        return share_devicearray(my_devary)
+
+
+def alloc(shape, nptype):
+    """
+    Collective function that allocates device memory with
+    given shape und NumPy type.
+
+    Returns a tuple containing Numba DeviceNDArrays of all
+    peer devices sorted by PE.
+    """
+    if ctx.use_static_heap:
+        return ctx.heap.alloc(shape, nptype)
+    else:
+        dtype = np.dtype(nptype)
+        if len(shape) == 1:
+            strides = (dtype.itemsize,)
+        elif len(shape) == 2:
+            strides = (dtype.itemsize * shape[1], dtype.itemsize)
+        else:
+            print("Allocation only implemented for 1D or 2D shape.")
+            return
+        my_devary = DeviceNDArray(shape=shape, strides=strides,
+                                  dtype=dtype, stream=0)
+        return share_devicearray(my_devary)
 
 
 def barrier_all_host():

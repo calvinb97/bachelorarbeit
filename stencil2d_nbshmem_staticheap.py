@@ -17,7 +17,7 @@ sig = (UniTuple(float64[:, :], 2), UniTuple(float64[:, :], 2), int64, int64,
        UniTuple(float64[:], 2), int64, int64, int64, int64, UniTuple(int64[::1], 2))
 
 
-@cuda.jit(sig, link=[nbshmem_cu])
+@cuda.jit
 def stencil2d_kernel(a_shmem, anew_shmem, n, iterations, diffnorm, my_pe, npes, y_end, x_end, sync):
     x, y = cuda.grid(2)
     bottom = my_pe + 1 if my_pe < (npes-1) else 0
@@ -73,12 +73,16 @@ print(f"Hello from {rank}")
 size = 2
 chunk_size = (n-2) // 2
 
-sync_shmem, shmem_heaps = nbshmem.init(comm, static_heap=True)
+sync_shmem = nbshmem.init(comm, static_heap=True)
 
-iterations = 500
-x_shmem = nbshmem.alloc_like(np.empty((chunk_size+2, n), dtype=np.float64))
-xnew_shmem = nbshmem.alloc_like(np.empty((chunk_size+2, n), dtype=np.float64))
-diffnorm_shmem = nbshmem.alloc_like(np.empty(iterations, dtype=np.float64))
+iterations = 2000
+x_shmem = nbshmem.array(np.empty((chunk_size+2, n), dtype=np.float64), copy=False)
+xnew_shmem = nbshmem.array(np.empty((chunk_size+2, n), dtype=np.float64), copy=False)
+diffnorm_shmem = nbshmem.array(np.empty(iterations, dtype=np.float64), copy=False)
+
+# x_shmem = nbshmem.alloc((chunk_size+2, n), dtype=np.float64)
+# xnew_shmem = nbshmem.alloc((chunk_size+2, n), dtype=np.float64)
+# diffnorm_shmem = nbshmem.alloc((iterations,), dtype=np.float64)
 
 threadsperblock = (8, 8)
 blockspergrid_x = math.ceil((chunk_size + 2) / threadsperblock[0])
@@ -102,7 +106,7 @@ if rank == 0:
     diffnorm_0 = diffnorm_shmem[0].copy_to_host()
     diffnorm_1 = diffnorm_shmem[1].copy_to_host()
     diffnorm = diffnorm_0 + diffnorm_1
-    norm = np.sqrt(diffnorm[::10])
+    norm = np.sqrt(diffnorm[::50])
     print(norm)
 
 # print(f"Process {rank} time: {time}")
