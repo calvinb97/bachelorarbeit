@@ -45,13 +45,13 @@ def stencil2d_kernel(a_shmem, anew_shmem, n, iterations, diffnorm,
                 anew_top = anew_shmem[top]
                 anew_top[x_end, y] = anew[x, y]
 
-        nbshmem.barrier_all_device(sync, my_pe, npes)
+        nbshmem.barrier_all(sync, my_pe, npes)
 
         tmp = a_shmem
         a_shmem = anew_shmem
         anew_shmem = tmp
 
-    nbshmem.allreduce_sum(red, diffnorm, iterations, my_pe, sync)
+    nbshmem.allreduce_sum(red[my_pe], diffnorm, iterations, my_pe, sync)
     idx_1d = nbshmem.get_1d_threadidx_in_grid()
     if idx_1d < iterations:
         red[my_pe][idx_1d] = math.sqrt(red[my_pe][idx_1d])
@@ -82,7 +82,9 @@ local_x = np.copy(x[first_row:(first_row+chunk_size+2), :])
 x_shmem = nbshmem.array(local_x)
 local_xnew = np.zeros_like(local_x)
 xnew_shmem = nbshmem.array(local_xnew)
-sync_local = np.zeros(3, dtype=np.int64)
+# sync_local = np.zeros(3, dtype=np.int64)
+# sync_shmem = nbshmem.array(sync_local)
+sync_local = np.full(3, False)
 sync_shmem = nbshmem.array(sync_local)
 
 iterations = 2000

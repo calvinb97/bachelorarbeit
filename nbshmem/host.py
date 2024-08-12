@@ -5,7 +5,7 @@ from numba.cuda.cudadrv.devicearray import DeviceNDArray
 from cuda.cuda import CUdeviceptr
 
 
-HEAP_SIZE = 2000000000
+HEAP_SIZE = 8000000000
 
 
 class StaticHeap():

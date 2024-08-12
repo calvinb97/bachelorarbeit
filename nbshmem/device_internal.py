@@ -12,13 +12,12 @@ def allreduce_1d(dest, src, elems, my_pe, sync):
     """
     idx = device.get_1d_threadidx_in_grid()
     numthreads = device.get_num_threads_in_grid()
-    my_dest = dest[my_pe]
     for i in range(0, elems, numthreads):
-        my_dest[idx] = 0
-    device.barrier_all_device(sync, my_pe, len(src))
-    for i in range(0, elems, numthreads):
-        for i in range(len(src)):
-            my_dest[idx] += src[i][idx]
+        dest[idx] = 0
+    device.barrier_all(sync, my_pe, len(src))
+    for i in range(idx, elems, numthreads):
+        for j in range(len(src)):
+            dest[i] += src[j][idx]
 
 
 @cuda.jit(device=True)
