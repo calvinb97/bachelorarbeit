@@ -71,12 +71,14 @@ blockspergrid = (blockspergrid_x, blockspergrid_y)
 x_end = chunk_size + 1
 y_end = n - 1
 
+sync_local = np.full(3, False)
+sync_shmem = nbshmem.array(sync_local)
+
+stream = cuda.stream()
+
 for i in range(iterations):
-    stencil2d_kernel[blockspergrid, threadsperblock](x_shmem, xnew_shmem, n, i,
-                                                     diffnorm_shmem, rank, size,
-                                                     y_end, x_end)
-    cuda.synchronize()
-    nbshmem.barrier_all_host()
+    stencil2d_kernel[blockspergrid, threadsperblock, stream](x_shmem, xnew_shmem, n, i, diffnorm_shmem, rank, size, y_end, x_end)
+    nbshmem.barrier_all_host_on_stream(sync_shmem, stream)
     tmp = x_shmem
     x_shmem = xnew_shmem
     xnew_shmem = tmp

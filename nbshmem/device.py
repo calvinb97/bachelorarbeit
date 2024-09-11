@@ -1,6 +1,5 @@
 from numba import cuda
 import cffi
-from nbshmem import device_internal as internal
 
 ffi = cffi.FFI()
 
@@ -13,9 +12,27 @@ wait_until_threadfence = cuda.declare_device('wait_until_cu_fence',
 @cuda.jit(device=True)
 def fence():
     """
-    Ensures memory ordering of the calling thread.
+    Ensures sequentially consistent ordering of operations
     """
     cuda.threadfence_system()
+
+
+@cuda.jit(device=True)
+def wait_until_ptxtest1(ary, val):
+    while ary[0] != val:
+        cuda.threadfence()
+
+
+@cuda.jit(device=True)
+def wait_until_ptxtest2(ary, idx, val):
+    while ary[idx] != val:
+        cuda.threadfence_block()
+
+
+@cuda.jit(device=True)
+def wait_until_ptxtest3(ary, idx, val):
+    while ary[idx] != val:
+        continue
 
 
 @cuda.jit(device=True)
@@ -36,24 +53,6 @@ def wait_until_c(ary, val):
     ary_ptr = ffi.from_buffer(ary)
     wait_until_volatile(ary_ptr, val)
 
-
-@cuda.jit(device=True)
-def barrier_all_device(sync_shmem, my_pe, npes):
-    """
-    Synchronized all GPUs and must be called by every Thread.
-    """
-    x, y = cuda.grid(2)
-    g = cuda.cg.this_grid()
-    cuda.threadfence_system()
-    g.sync()
-    if x == 0 and y == 0:
-        for i in range(npes):
-            cuda.atomic.add(sync_shmem[i], 0, 1)
-        wait_until(sync_shmem[my_pe], 0, npes)
-    g.sync()
-    if x == 0 and y == 0:
-        sync_shmem[my_pe][0] = 0
-    
 
 @cuda.jit(device=True)
 def barrier_all_atomic(sync_shmem, my_pe, npes):
@@ -120,6 +119,9 @@ def barrier_all(sync_shmem, my_pe, npes):
 
 @cuda.jit()
 def get_idx_1d_block():
+    """
+    Returns the one-dimensional index of a thread in its block
+    """
     return cuda.threadIdx.x * cuda.blockDim.y + cuda.threadIdx.y
 
 
@@ -195,13 +197,58 @@ def alltoall_2d(dest, src, rows, my_pe, sync):
 
 
 @cuda.jit(device=True)
-def allreduce_sum(dest, src, elems, my_pe, sync):
-    """
-    Performs SUM-Allreduce and must be called by every thread.
-    """
-    if len(src[my_pe].shape) == 1:
-        internal.allreduce_1d(dest, src, elems, my_pe, sync)
-    if len(src[my_pe].shape) == 2:
-        internal.allreduce_2d(dest, src, elems, my_pe, sync)
+def allreduce_1d_sum(dest, src, elems, my_pe, sync):
+    g = cuda.cg.this_grid()
+    dest = dest[my_pe]
+    idx = get_1d_threadidx_in_grid()
+    numthreads = get_num_threads_in_grid()
+    for i in range(idx, elems, numthreads):
+        dest[i] = 0
+    barrier_all(sync, my_pe, len(src))
+    for i in range(idx, elems, numthreads):
+        for pe in range(len(src)):
+            dest[i] += src[pe][i]
+    barrier_all(sync, my_pe, len(src))
 
 
+@cuda.jit(device=True)
+def allreduce_2d_sum(dest, src, elems, my_pe, sync):
+    g = cuda.cg.this_grid()
+    dest = dest[my_pe]
+    idx = get_1d_threadidx_in_grid()
+    numthreads = get_num_threads_in_grid()
+    for i in range(idx, elems, numthreads):
+        row = i // dest.shape[1]
+        col = i % dest.shape[1]
+        dest[row][col] = 0
+    barrier_all(sync, my_pe, len(src))
+    for i in range(idx, elems, numthreads):
+        row = i // dest.shape[1]
+        col = i % dest.shape[1]
+        for pe in range(len(src)):
+            dest[row][col] += src[pe][row][col]
+    # g.sync()
+    barrier_all(sync, my_pe, len(src))
+
+
+@cuda.jit(device=True)
+def allreduce_1d_sum_bcast(dest, src, elems, my_pe, sync):
+    g = cuda.cg.this_grid()
+    my_dest = dest[my_pe]
+    idx = get_1d_threadidx_in_grid()
+    numthreads = get_num_threads_in_grid()
+    if my_pe == 0:
+        for i in range(idx, elems, numthreads):
+            my_dest[i] = 0
+    barrier_all(sync, my_pe, len(src))
+    if my_pe == 0:
+        for i in range(idx, elems, numthreads):
+            for pe in range(len(src)):
+                my_dest[i] += src[pe][i]
+        g.sync()
+    broadcast_1d(dest, dest[my_pe], elems, 0, my_pe, sync)
+
+
+@cuda.jit
+def barrier_all_kernel(sync_shmem, my_pe, npes):
+    barrier_all(sync_shmem, my_pe, npes)

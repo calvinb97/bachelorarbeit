@@ -51,7 +51,7 @@ def stencil2d_kernel(a_shmem, anew_shmem, n, iterations, diffnorm,
         a_shmem = anew_shmem
         anew_shmem = tmp
 
-    nbshmem.allreduce_sum(red[my_pe], diffnorm, iterations, my_pe, sync)
+    nbshmem.allreduce_1d_sum_bcast(red, diffnorm, iterations, my_pe, sync)
     idx_1d = nbshmem.get_1d_threadidx_in_grid()
     if idx_1d < iterations:
         red[my_pe][idx_1d] = math.sqrt(red[my_pe][idx_1d])
