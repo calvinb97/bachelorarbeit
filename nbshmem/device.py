@@ -149,6 +149,7 @@ def get_num_threads_in_grid():
 @cuda.jit(device=True)
 def broadcast_1d(dest, src, elems, root, my_pe, sync):
     if root == my_pe:
+        src = src[my_pe]
         idx = get_1d_threadidx_in_grid()
         numthreads = get_num_threads_in_grid()
         for i in range(idx, elems, numthreads):
@@ -160,6 +161,7 @@ def broadcast_1d(dest, src, elems, root, my_pe, sync):
 @cuda.jit(device=True)
 def broadcast_2d(dest, src, rows, root, my_pe, sync):
     if root == my_pe:
+        src = src[my_pe]
         idx = get_1d_threadidx_in_grid()
         numthreads = get_num_threads_in_grid()
         for i in range(idx, rows * src.shape[1], numthreads):
@@ -174,6 +176,7 @@ def broadcast_2d(dest, src, rows, root, my_pe, sync):
 def alltoall_1d(dest, src, elems, my_pe, sync):
     idx = get_1d_threadidx_in_grid()
     numthreads = get_num_threads_in_grid()
+    src = src[my_pe]
     for i in range(idx, elems * len(dest), numthreads):
         pe = i // elems
         pe_offset = my_pe * elems
@@ -186,6 +189,7 @@ def alltoall_1d(dest, src, elems, my_pe, sync):
 def alltoall_2d(dest, src, rows, my_pe, sync):
     idx = get_1d_threadidx_in_grid()
     numthreads = get_num_threads_in_grid()
+    src = src[my_pe]
     for i in range(idx, rows * len(dest) * src.shape[1], numthreads):
         row = i // src.shape[1]
         col = i % src.shape[1]
@@ -246,7 +250,7 @@ def allreduce_1d_sum_bcast(dest, src, elems, my_pe, sync):
             for pe in range(len(src)):
                 my_dest[i] += src[pe][i]
         g.sync()
-    broadcast_1d(dest, dest[my_pe], elems, 0, my_pe, sync)
+    broadcast_1d(dest, dest, elems, 0, my_pe, sync)
 
 
 @cuda.jit
