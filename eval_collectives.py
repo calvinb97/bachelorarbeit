@@ -300,12 +300,27 @@ if rank == 0:
 # AlltoAll  #
 # # # # # # #
 
+ary_0 = np.arange(ary_size, dtype=np.int32)
+ary_1 = np.arange(ary_size, dtype=np.int32) * 10
+if rank == 0:
+    ary_shmem = nbshmem.array(ary_0)
+else:
+    ary_shmem = nbshmem.array(ary_1)
+alltoall_res = np.empty(ary_size, dtype=np.int32)
+chunk_size = ary_size // 2
+if rank == 0:
+    alltoall_res[:chunk_size] = ary_0[:chunk_size]
+    alltoall_res[chunk_size:] = ary_1[:chunk_size]
+else:
+    alltoall_res[:chunk_size] = ary_0[chunk_size:]
+    alltoall_res[chunk_size:] = ary_1[chunk_size:]
+
 print("AlltoAll for 1 Block with 512 Threads")
 time_results = []
 for i in range(11):
     comm.Barrier()
     start_time = MPI.Wtime()
-    alltoall_1d_kernel[1, 512](ary_shmem, ary_size, res_shmem, rank, 2, sync_shmem)
+    alltoall_1d_kernel[1, 512](ary_shmem, chunk_size, res_shmem, rank, 2, sync_shmem)
     cuda.synchronize()
     end_time = MPI.Wtime()
     time = end_time - start_time
@@ -316,10 +331,99 @@ for i in range(11):
 
     # assert correct result
     h_dest = res_shmem[rank].copy_to_host()
-    assert np.allclose(h_dest, ary)
+    assert np.allclose(h_dest, alltoall_res)
 
 gathered_results = comm.gather(time_results)
 if rank == 0:
     results = np.array(gathered_results).reshape(20,)
-    print(f"Block (512) Broadcast mean: {np.mean(results)}")
-    print(f"Block (512) Broadcast std: {np.std(results)}")
+    print(f"Block (512) AlltoAll mean: {np.mean(results)}")
+    print(f"Block (512) AlltoAll std: {np.std(results)}")
+
+
+print("AlltoAll for 1 Block with 1024 Threads")
+time_results = []
+for i in range(11):
+    comm.Barrier()
+    start_time = MPI.Wtime()
+    alltoall_1d_kernel[1, 1024](ary_shmem, chunk_size, res_shmem, rank, 2, sync_shmem)
+    cuda.synchronize()
+    end_time = MPI.Wtime()
+    time = end_time - start_time
+    if i == 0:
+        print(f"iteration {i}: {time} on process {rank}")
+    else:
+        time_results.append(time)
+
+    # assert correct result
+    h_dest = res_shmem[rank].copy_to_host()
+    assert np.allclose(h_dest, alltoall_res)
+
+gathered_results = comm.gather(time_results)
+if rank == 0:
+    results = np.array(gathered_results).reshape(20,)
+    print(f"Block (1024) AlltoAll mean: {np.mean(results)}")
+    print(f"Block (1024) AlltoAll std: {np.std(results)}")
+
+
+print("AlltoAll for 320 blocks with 256 Threads (max gridsize)")
+time_results = []
+for i in range(11):
+    comm.Barrier()
+    start_time = MPI.Wtime()
+    alltoall_1d_kernel[320, 256](ary_shmem, chunk_size, res_shmem, rank, 2, sync_shmem)
+    cuda.synchronize()
+    end_time = MPI.Wtime()
+    time = end_time - start_time
+    if i == 0:
+        print(f"iteration {i}: {time} on process {rank}")
+    else:
+        time_results.append(time)
+
+    # assert correct result
+    h_dest = res_shmem[rank].copy_to_host()
+    assert np.allclose(h_dest, alltoall_res)
+
+gathered_results = comm.gather(time_results)
+if rank == 0:
+    results = np.array(gathered_results).reshape(20,)
+    print(f"AlltoAll (max blocks) mean: {np.mean(results)}")
+    print(f"AlltoAll (max blocks) std: {np.std(results)}")
+
+
+print("AlltoAll with NCCL")
+if rank == 0:
+    cupy_ary = cupy.arange(ary_size, dtype=np.int32)
+else:
+    cupy_ary = cupy.arange(ary_size, dtype=np.int32) * 10
+
+cupy_res = cupy.zeros(ary_size, dtype=np.int32)
+
+time_results = []
+for i in range(11):
+    comm.Barrier()
+    start_time = MPI.Wtime()
+    cupy.cuda.nccl.groupStart()
+    for pe in range(2):
+        from_idx = pe * chunk_size
+        to_idx = (pe + 1) * chunk_size
+        nccl_comm.send(cupy_ary[from_idx:to_idx], pe)
+        nccl_comm.recv(cupy_res[from_idx:to_idx], pe)
+    cupy.cuda.nccl.groupEnd()
+    cupy.cuda.runtime.deviceSynchronize()
+    end_time = MPI.Wtime()
+    time = end_time - start_time
+    if i == 0:
+        print(f"iteration {i}: {time} on process {rank}")
+    else:
+        time_results.append(time)
+
+    # assert correct result
+    # cupy_res = cupy_res.reshape(ary_size)
+    assert np.allclose(cupy_res, alltoall_res)
+
+gathered_results = comm.gather(time_results)
+if rank == 0:
+    results = np.array(gathered_results).reshape(20,)
+    print(f"AlltoAll (NCCL) mean: {np.mean(results)}")
+    print(f"AlltoAll (NCCL) std: {np.std(results)}")
+
