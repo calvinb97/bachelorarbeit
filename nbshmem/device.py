@@ -3,10 +3,8 @@ import cffi
 
 ffi = cffi.FFI()
 
-wait_until_volatile = cuda.declare_device('wait_until_cu_volatile',
-                                          'void(CPointer(int64), int64)')
-wait_until_threadfence = cuda.declare_device('wait_until_cu_fence',
-                                             'void(CPointer(int64), int64)')
+wait_until_bool_cu = cuda.declare_device('wait_until_bool_volatile',
+                                         'void(CPointer(boolean), int64, boolean)')
 
 
 @cuda.jit(device=True)
@@ -45,38 +43,13 @@ def wait_until(ary, idx, val):
 
 
 @cuda.jit(device=True)
-def wait_until_c(ary, val):
+def wait_until_bool(ary, idx, val):
     """
     Busy-waits until condition is true.
     Implemented with volatile memory access in C.
     """
     ary_ptr = ffi.from_buffer(ary)
-    wait_until_volatile(ary_ptr, val)
-
-
-@cuda.jit(device=True)
-def barrier_all_atomic(sync_shmem, my_pe, npes):
-    x, y = cuda.grid(2)
-    g = cuda.cg.this_grid()
-
-    counter = sync_shmem[my_pe][0]
-
-    cuda.threadfence_system()
-    g.sync()
-
-    if my_pe == 0:
-        if cuda.blockIdx.x == 0 and cuda.blockIdx.y == 0:
-            if cuda.threadIdx.x == 0 and cuda.threadIdx.y == 0:
-                wait_until(sync_shmem[my_pe], 0, counter + (npes - 1))
-            cuda.syncthreads()
-            idx_in_block = get_idx_1d_block()
-            if idx_in_block > 0 and idx_in_block < npes:
-                sync_shmem[idx_in_block][0] += 1
-    else:
-        if x == 0 and y == 0:
-            cuda.atomic.add(sync_shmem[0], 0, 1)
-            wait_until(sync_shmem[my_pe], 0, counter + 1)
-    g.sync()
+    wait_until_bool_cu(ary_ptr, idx, val)
 
 
 @cuda.jit(device=True)
@@ -112,6 +85,44 @@ def barrier_all(sync_shmem, my_pe, npes):
         if x == 0 and y == 0:
             sync_shmem[0][my_pe] = not phase
             wait_until(sync_shmem[my_pe], 0, not phase)
+
+    # synchronize all threads on local GPU
+    g.sync()
+
+
+@cuda.jit(device=True)
+def barrier_all_volatile(sync_shmem, my_pe, npes):
+    """
+    Barrier for all threads on all GPUs.
+    sync_shmem array is organized as follows:
+    | phase | flag GPU 1 | ... | flag GPU n |
+    """
+    x, y = cuda.grid(2)
+    g = cuda.cg.this_grid()
+
+    # current phase (alternating between barrier calls)
+    phase = sync_shmem[my_pe][0]
+
+    # synchronize all threads on local GPU
+    cuda.threadfence_system()
+    g.sync()
+
+    # root PE waits until barrier flags of all PEs are set,
+    # then signals phase swap to all other PEs
+    if my_pe == 0:
+        if cuda.blockIdx.x == 0 and cuda.blockIdx.y == 0:
+            idx_in_block = get_idx_1d_block()
+            if idx_in_block > 0 and idx_in_block < npes:
+                wait_until_bool(sync_shmem[my_pe], idx_in_block, not phase)
+            cuda.syncthreads()
+            if idx_in_block < npes:
+                sync_shmem[idx_in_block][0] = not phase
+    else:
+        # one thread signals arrival at barrier to root PE
+        # and waits for barrier signal from root PE
+        if x == 0 and y == 0:
+            sync_shmem[0][my_pe] = not phase
+            wait_until_bool(sync_shmem[my_pe], 0, not phase)
 
     # synchronize all threads on local GPU
     g.sync()
@@ -202,7 +213,6 @@ def alltoall_2d(dest, src, rows, my_pe, sync):
 
 @cuda.jit(device=True)
 def allreduce_1d_sum(dest, src, elems, my_pe, sync):
-    g = cuda.cg.this_grid()
     dest = dest[my_pe]
     idx = get_1d_threadidx_in_grid()
     numthreads = get_num_threads_in_grid()
@@ -216,22 +226,20 @@ def allreduce_1d_sum(dest, src, elems, my_pe, sync):
 
 
 @cuda.jit(device=True)
-def allreduce_2d_sum(dest, src, elems, my_pe, sync):
-    g = cuda.cg.this_grid()
+def allreduce_2d_sum(dest, src, rows, my_pe, sync):
     dest = dest[my_pe]
     idx = get_1d_threadidx_in_grid()
     numthreads = get_num_threads_in_grid()
-    for i in range(idx, elems, numthreads):
+    for i in range(idx, rows * dest.shape[1], numthreads):
         row = i // dest.shape[1]
         col = i % dest.shape[1]
         dest[row][col] = 0
     barrier_all(sync, my_pe, len(src))
-    for i in range(idx, elems, numthreads):
+    for i in range(idx, rows * dest.shape[1], numthreads):
         row = i // dest.shape[1]
         col = i % dest.shape[1]
         for pe in range(len(src)):
             dest[row][col] += src[pe][row][col]
-    # g.sync()
     barrier_all(sync, my_pe, len(src))
 
 

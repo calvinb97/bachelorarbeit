@@ -1,15 +1,13 @@
-extern "C" __device__ int wait_until_cu_volatile(int* return_value, long* array, long val) {
-    while(*((volatile long *)array) != val) {
+extern "C" __device__ int wait_until_bool_volatile(int* return_value, volatile bool* array, long idx, bool val) {
+    while(array[idx] != val) {
         continue;
     }
-    return_value[0] = 1;
     return 0;
 }
 
-extern "C" __device__ int wait_until_cu_fence(int* return_value, long* array, long val) {
-    while(*array != val) {
-        __threadfence();
+extern "C" __device__ int wait_until_long_volatile(int* return_value, volatile long* array, long idx, long val) {
+    while(array[idx] != val) {
+        continue;
     }
-    return_value[0] = 1;
     return 0;
 }

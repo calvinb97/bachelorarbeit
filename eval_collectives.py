@@ -6,6 +6,11 @@ import nbshmem
 import cupy
 from cupyx.distributed import NCCLBackend
 
+# ignore performance warning for one-block-launch
+from numba.core.errors import NumbaPerformanceWarning
+import warnings
+warnings.simplefilter('ignore', category=NumbaPerformanceWarning)
+
 
 @cuda.jit
 def allreduce_1d_kernel(ary, ary_size, res, my_pe, npes, sync):
@@ -18,8 +23,8 @@ def allreduce_1d_bcast_kernel(ary, ary_size, res, my_pe, npes, sync):
 
 
 @cuda.jit
-def allreduce_2d_kernel(ary, ary_size, res, my_pe, npes, sync):
-    nbshmem.allreduce_2d_sum(res, ary, ary_size, my_pe, sync)
+def allreduce_2d_kernel(ary, rows, res, my_pe, npes, sync):
+    nbshmem.allreduce_2d_sum(res, ary, rows, my_pe, sync)
 
 
 @cuda.jit
@@ -28,8 +33,18 @@ def broadcast_1d_kernel(ary, nelems, bcast_res, my_pe, npes, sync):
 
 
 @cuda.jit
+def broadcast_2d_kernel(ary, rows, bcast_res, my_pe, npes, sync):
+    nbshmem.broadcast_2d(bcast_res, ary, rows, 0, my_pe, sync)
+
+
+@cuda.jit
 def alltoall_1d_kernel(ary, nelems, alltoall_res, my_pe, npes, sync):
     nbshmem.alltoall_1d(alltoall_res, ary, nelems, my_pe, sync)
+
+
+@cuda.jit
+def alltoall_2d_kernel(ary, rows_per_chunk, alltoall_res, my_pe, npes, sync):
+    nbshmem.alltoall_2d(alltoall_res, ary, rows_per_chunk, my_pe, sync)
 
 
 comm = MPI.COMM_WORLD
@@ -44,16 +59,25 @@ num_devices = 2
 nccl_comm = NCCLBackend(num_devices, rank, use_mpi=True)
 
 
-ary_size = 16384 * 10000
+ary_size = 1000 * 1000000 // 4
+# ary_size = 16384 * 10000
+# ary_size = 20
 
 ary = np.arange(ary_size, dtype=np.int32)
 ary_shmem = nbshmem.array(ary)
 res_shmem = nbshmem.alloc((ary_size, ), np.int32)
 
+ary = ary.reshape(2, ary_size//2)
+ary2d_shmem = nbshmem.array(ary)
+res2d_shmem = nbshmem.alloc((2, ary_size//2), np.int32)
+ary = ary.reshape(ary_size)
+
 # Sync array
 sync_local = np.full(3, False)
 sync_shmem = nbshmem.array(sync_local)
 
+if rank == 0:
+    print(f"*** Starting evaluation for array of size {ary_size * 4 / 1000000} MB ***")
 
 
 # # # # # # #
@@ -62,7 +86,8 @@ sync_shmem = nbshmem.array(sync_local)
 
 reduction_result = 2 * ary
 
-print("Allreduce for 1 Block with 256 Threads")
+if rank == 0:
+    print("Allreduce for 1 Block with 256 Threads")
 time_results = []
 for i in range(11):
     comm.Barrier()
@@ -87,7 +112,8 @@ if rank == 0:
     print(f"Block (256) Allreduce std: {np.std(results)}")
 
 
-print("Allreduce for 1 Block with 512 Threads")
+if rank == 0:
+    print("Allreduce for 1 Block with 512 Threads")
 time_results = []
 for i in range(11):
     comm.Barrier()
@@ -111,8 +137,8 @@ if rank == 0:
     print(f"Block (512) Allreduce mean: {np.mean(results)}")
     print(f"Block (512) Allreduce std: {np.std(results)}")
 
-
-print("Allreduce for 1600 blocks with 32 Threads (max gridsize)")
+if rank == 0:
+    print("Allreduce for 1600 blocks with 32 Threads (max gridsize)")
 time_results = []
 for i in range(11):
     comm.Barrier()
@@ -136,8 +162,34 @@ if rank == 0:
     print(f"Allreduce (max grid) mean: {np.mean(results)}")
     print(f"Allreduce (max grid) std: {np.std(results)}")
 
+if rank == 0:
+    print("Allreduce 2D for 1600 blocks with 32 Threads (max gridsize)")
+time_results = []
+for i in range(11):
+    comm.Barrier()
+    start_time = MPI.Wtime()
+    allreduce_2d_kernel[1600, 32](ary2d_shmem, 2, res2d_shmem, rank, 2, sync_shmem)
+    cuda.synchronize()
+    end_time = MPI.Wtime()
+    time = end_time - start_time
+    if i == 0:
+        print(f"iteration {i}: {time} on process {rank}")
+    else:
+        time_results.append(time)
 
-print("Allreduce_Bcast for 1600 blocks with 32 Threads")
+    # assert correct result
+    h_dest = res2d_shmem[rank].copy_to_host()
+    h_dest = h_dest.reshape(ary_size)
+    assert np.allclose(h_dest, reduction_result)
+
+gathered_results = comm.gather(time_results)
+if rank == 0:
+    results = np.array(gathered_results).reshape(20,)
+    print(f"Allreduce 2D (max grid) mean: {np.mean(results)}")
+    print(f"Allreduce 2D (max grid) std: {np.std(results)}")
+
+if rank == 0:
+    print("Allreduce_Bcast for 1600 blocks with 32 Threads")
 time_results = []
 for i in range(11):
     comm.Barrier()
@@ -162,7 +214,8 @@ if rank == 0:
     print(f"Allreduce_Bcast (1600*32) std: {np.std(results)}")
 
 
-print("Allreduce with NCCL")
+if rank == 0:
+    print("Allreduce with NCCL")
 cupy_ary = cupy.arange(ary_size, dtype=np.int32)
 cupy_res = cupy.zeros(ary_size, dtype=np.int32)
 time_results = []
@@ -193,7 +246,8 @@ if rank == 0:
 # # # # # # #
 
 
-print("Broadcast for 1 Block with 512 Threads")
+if rank == 0:
+    print("Broadcast for 1 Block with 512 Threads")
 time_results = []
 for i in range(11):
     comm.Barrier()
@@ -218,7 +272,8 @@ if rank == 0:
     print(f"Block (512) Broadcast std: {np.std(results)}")
 
 
-print("Broadcast for 1 Block with 1024 Threads")
+if rank == 0:
+    print("Broadcast for 1 Block with 1024 Threads")
 time_results = []
 for i in range(11):
     comm.Barrier()
@@ -243,7 +298,8 @@ if rank == 0:
     print(f"Block (1024) Broadcast std: {np.std(results)}")
 
 
-print("Broadcast for 240 blocks with 512 Threads (max gridsize)")
+if rank == 0:
+    print("Broadcast for 240 blocks with 512 Threads (max gridsize)")
 time_results = []
 for i in range(11):
     comm.Barrier()
@@ -267,8 +323,35 @@ if rank == 0:
     print(f"Broadcast (max grid) mean: {np.mean(results)}")
     print(f"Broadcast (max grid) std: {np.std(results)}")
 
+if rank == 0:
+    print("Broadcast 2D for 240 blocks with 512 Threads (max gridsize)")
+time_results = []
+for i in range(11):
+    comm.Barrier()
+    start_time = MPI.Wtime()
+    broadcast_2d_kernel[240, 512](ary2d_shmem, 2, res2d_shmem, rank, 2, sync_shmem)
+    cuda.synchronize()
+    end_time = MPI.Wtime()
+    time = end_time - start_time
+    if i == 0:
+        print(f"iteration {i}: {time} on process {rank}")
+    else:
+        time_results.append(time)
 
-print("Broadcast with NCCL")
+    # assert correct result
+    h_dest = res2d_shmem[rank].copy_to_host()
+    h_dest = h_dest.reshape(ary_size)
+    assert np.allclose(h_dest, ary)
+
+gathered_results = comm.gather(time_results)
+if rank == 0:
+    results = np.array(gathered_results).reshape(20,)
+    print(f"Broadcast 2D (max grid) mean: {np.mean(results)}")
+    print(f"Broadcast 2D (max grid) std: {np.std(results)}")
+
+
+if rank == 0:
+    print("Broadcast with NCCL")
 if rank == 0:
     cupy_ary = cupy.arange(ary_size, dtype=np.int32)
 else:
@@ -304,8 +387,14 @@ ary_0 = np.arange(ary_size, dtype=np.int32)
 ary_1 = np.arange(ary_size, dtype=np.int32) * 10
 if rank == 0:
     ary_shmem = nbshmem.array(ary_0)
+    ary_0 = ary_0.reshape(2, ary_size//2)
+    ary2d_shmem = nbshmem.array(ary_0)
+    ary_0 = ary_0.reshape(ary_size)
 else:
     ary_shmem = nbshmem.array(ary_1)
+    ary_1 = ary_1.reshape(2, ary_size//2)
+    ary2d_shmem = nbshmem.array(ary_1)
+    ary_1 = ary_1.reshape(ary_size)
 alltoall_res = np.empty(ary_size, dtype=np.int32)
 chunk_size = ary_size // 2
 if rank == 0:
@@ -315,7 +404,8 @@ else:
     alltoall_res[:chunk_size] = ary_0[chunk_size:]
     alltoall_res[chunk_size:] = ary_1[chunk_size:]
 
-print("AlltoAll for 1 Block with 512 Threads")
+if rank == 0:
+    print("AlltoAll for 1 Block with 512 Threads")
 time_results = []
 for i in range(11):
     comm.Barrier()
@@ -340,7 +430,8 @@ if rank == 0:
     print(f"Block (512) AlltoAll std: {np.std(results)}")
 
 
-print("AlltoAll for 1 Block with 1024 Threads")
+if rank == 0:
+    print("AlltoAll for 1 Block with 1024 Threads")
 time_results = []
 for i in range(11):
     comm.Barrier()
@@ -365,7 +456,8 @@ if rank == 0:
     print(f"Block (1024) AlltoAll std: {np.std(results)}")
 
 
-print("AlltoAll for 320 blocks with 256 Threads (max gridsize)")
+if rank == 0:
+    print("AlltoAll for 320 blocks with 256 Threads (max gridsize)")
 time_results = []
 for i in range(11):
     comm.Barrier()
@@ -389,8 +481,35 @@ if rank == 0:
     print(f"AlltoAll (max blocks) mean: {np.mean(results)}")
     print(f"AlltoAll (max blocks) std: {np.std(results)}")
 
+if rank == 0:
+    print("AlltoAll 2D for 320 blocks with 256 Threads (max gridsize)")
+time_results = []
+for i in range(11):
+    comm.Barrier()
+    start_time = MPI.Wtime()
+    alltoall_2d_kernel[320, 256](ary2d_shmem, 1, res2d_shmem, rank, 2, sync_shmem)
+    cuda.synchronize()
+    end_time = MPI.Wtime()
+    time = end_time - start_time
+    if i == 0:
+        print(f"iteration {i}: {time} on process {rank}")
+    else:
+        time_results.append(time)
 
-print("AlltoAll with NCCL")
+    # assert correct result
+    h_dest = res2d_shmem[rank].copy_to_host()
+    h_dest = h_dest.reshape(ary_size)
+    assert np.allclose(h_dest, alltoall_res)
+
+gathered_results = comm.gather(time_results)
+if rank == 0:
+    results = np.array(gathered_results).reshape(20,)
+    print(f"AlltoAll 2D (max blocks) mean: {np.mean(results)}")
+    print(f"AlltoAll 2D (max blocks) std: {np.std(results)}")
+
+
+if rank == 0:
+    print("AlltoAll with NCCL")
 if rank == 0:
     cupy_ary = cupy.arange(ary_size, dtype=np.int32)
 else:

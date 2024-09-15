@@ -7,8 +7,13 @@ import math
 rand_value = 30
 n = 128
 
+from numba.types.containers import UniTuple
+from numba.types import int64, float64
 
-@cuda.jit
+sig = (UniTuple(float64[:, :], 2), UniTuple(float64[:, :], 2), int64, int64,
+       UniTuple(float64[:], 2), int64, int64, int64, int64)
+
+@cuda.jit(sig)
 def stencil2d_kernel(a_shmem, anew_shmem, n, iter, diffnorm, my_pe, npes, y_end, x_end):
     x, y = cuda.grid(2)
     a = a_shmem[my_pe]
@@ -76,16 +81,20 @@ sync_shmem = nbshmem.array(sync_local)
 
 stream = cuda.stream()
 
+start_time = MPI.Wtime()
 for i in range(iterations):
     stencil2d_kernel[blockspergrid, threadsperblock, stream](x_shmem, xnew_shmem, n, i, diffnorm_shmem, rank, size, y_end, x_end)
-    nbshmem.barrier_all_host_on_stream(sync_shmem, stream)
+    nbshmem.barrier_all_host_on_stream(sync_shmem, stream, 2)
     tmp = x_shmem
     x_shmem = xnew_shmem
     xnew_shmem = tmp
-
+stream.synchronize()
+end_time = MPI.Wtime()
+time = end_time - start_time
 if rank == 0:
     diffnorm_0 = diffnorm_shmem[0].copy_to_host()
     diffnorm_1 = diffnorm_shmem[1].copy_to_host()
     diffnorm = diffnorm_0 + diffnorm_1
     norm = np.sqrt(diffnorm[::50])
-    print(norm)
+    # print(norm)
+    print(time)
