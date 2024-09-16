@@ -1,0 +1,273 @@
+*** Starting evaluation for array of size 128.0 MB ***
+Allreduce for 1 Block with 256 Threads
+iteration 0: 1.032815102 on process 1
+iteration 0: 1.032826585 on process 0
+Block (256) Allreduce mean: 0.1269203904500001
+Block (256) Allreduce std: 0.0003916832225446642
+Allreduce for 1 Block with 512 Threads
+iteration 0: 0.06966911700000011 on process 1
+iteration 0: 0.06966908400000005 on process 0
+Block (512) Allreduce mean: 0.06911773720000011
+Block (512) Allreduce std: 0.00022289211172914246
+Allreduce for 1600 blocks with 32 Threads (max gridsize)
+iteration 0: 0.002939351000000201 on process 1
+iteration 0: 0.0029394800000002164 on process 0
+Allreduce (max grid) mean: 0.0029522800500000556
+Allreduce (max grid) std: 8.876801036813331e-06
+Allreduce 2D for 1600 blocks with 32 Threads (max gridsize)
+iteration 0: 0.41188924900000146 on process 1
+iteration 0: 0.4118879849999999 on process 0
+Allreduce 2D (max grid) mean: 0.003002026350000264
+Allreduce 2D (max grid) std: 6.9877725943057346e-06
+Allreduce_Bcast for 1600 blocks with 32 Threads
+iteration 0: 0.4124465730000004 on process 1
+iteration 0: 0.4124468410000013 on process 0
+Allreduce_Bcast (1600*32) mean: 0.0046284308499998875
+Allreduce_Bcast (1600*32) std: 1.5769149971646095e-05
+Allreduce with NCCL
+iteration 0: 0.0034250349999993546 on process 1
+iteration 0: 0.0033932479999982945 on process 0
+Allreduce (NCCL) mean: 0.0022508926000003983
+Allreduce (NCCL) std: 1.1134749164034553e-05
+Broadcast for 1 Block with 512 Threads
+iteration 0: 0.16119575500000138 on process 1
+iteration 0: 0.16119571200000138 on process 0
+Block (512) Broadcast mean: 0.028456384249999543
+Block (512) Broadcast std: 8.479840412808135e-05
+Broadcast for 1 Block with 1024 Threads
+iteration 0: 0.018247955999999732 on process 1
+iteration 0: 0.018247817999998972 on process 0
+Block (1024) Broadcast mean: 0.018229145350000663
+Block (1024) Broadcast std: 2.117911323089966e-05
+Broadcast for 240 blocks with 512 Threads (max gridsize)
+iteration 0: 0.002495512999999505 on process 1
+iteration 0: 0.002494200000001001 on process 0
+Broadcast (max grid) mean: 0.002519055700000905
+Broadcast (max grid) std: 6.35699687864632e-06
+Broadcast 2D for 240 blocks with 512 Threads (max gridsize)
+iteration 0: 0.252461959999998 on process 1
+iteration 0: 0.25246140499999825 on process 0
+Broadcast 2D (max grid) mean: 0.002524605900000054
+Broadcast 2D (max grid) std: 5.725318392110177e-06
+Broadcast with NCCL
+iteration 0: 0.002250361000001533 on process 1
+iteration 0: 0.002240256000000329 on process 0
+Broadcast (NCCL) mean: 0.0019561122999995463
+Broadcast (NCCL) std: 1.2744196644026443e-05
+AlltoAll for 1 Block with 512 Threads
+iteration 0: 0.25955555000000174 on process 1
+iteration 0: 0.25955503600000185 on process 0
+Block (512) AlltoAll mean: 0.037234565450001256
+Block (512) AlltoAll std: 0.00011431939386281954
+AlltoAll for 1 Block with 1024 Threads
+iteration 0: 0.024726768999997262 on process 1
+iteration 0: 0.024724575999997 on process 0
+Block (1024) AlltoAll mean: 0.02465414189999855
+Block (1024) AlltoAll std: 2.82113143448566e-05
+AlltoAll for 320 blocks with 256 Threads (max gridsize)
+iteration 0: 0.001772318999996969 on process 1
+iteration 0: 0.0017721979999976156 on process 0
+AlltoAll (max blocks) mean: 0.0017997901999994071
+AlltoAll (max blocks) std: 1.2278143885158327e-05
+AlltoAll 2D for 320 blocks with 256 Threads (max gridsize)
+iteration 0: 0.26146599100000145 on process 1
+iteration 0: 0.2614656400000044 on process 0
+AlltoAll 2D (max blocks) mean: 0.0019005861000003677
+AlltoAll 2D (max blocks) std: 2.68745726085095e-05
+AlltoAll with NCCL
+iteration 0: 0.037229722000006404 on process 1
+iteration 0: 0.03722954799999911 on process 0
+AlltoAll (NCCL) mean: 0.001438816699997858
+AlltoAll (NCCL) std: 1.1251338787199738e-05
+
+
+*** Starting evaluation for array of size 512.0 MB ***
+Allreduce for 1 Block with 256 Threads
+iteration 0: 1.400655597 on process 1
+iteration 0: 1.400647501 on process 0
+Block (256) Allreduce mean: 0.5060575615499997
+Block (256) Allreduce std: 0.0005467303539403342
+Allreduce for 1 Block with 512 Threads
+iteration 0: 0.27873978099999874 on process 1
+iteration 0: 0.27873984600000057 on process 0
+Block (512) Allreduce mean: 0.27912183814999986
+Block (512) Allreduce std: 0.00034407651882257834
+Allreduce for 1600 blocks with 32 Threads (max gridsize)
+iteration 0: 0.00965686899999696 on process 1
+iteration 0: 0.009656900999999607 on process 0
+Allreduce (max grid) mean: 0.00970397659999982
+Allreduce (max grid) std: 3.5738249373505734e-05
+Allreduce 2D for 1600 blocks with 32 Threads (max gridsize)
+iteration 0: 0.417494609000002 on process 1
+iteration 0: 0.4174954440000036 on process 0
+Allreduce 2D (max grid) mean: 0.009800825599997865
+Allreduce 2D (max grid) std: 4.075937417064656e-05
+Allreduce_Bcast for 1600 blocks with 32 Threads
+iteration 0: 0.4234578450000015 on process 1
+iteration 0: 0.42345798099999854 on process 0
+Allreduce_Bcast (1600*32) mean: 0.016494071149999456
+Allreduce_Bcast (1600*32) std: 5.4061512341990586e-05
+Allreduce with NCCL
+iteration 0: 0.010133120999995526 on process 1
+iteration 0: 0.01013821200000109 on process 0
+Allreduce (NCCL) mean: 0.008444148200000967
+Allreduce (NCCL) std: 5.194402072785619e-05
+Broadcast for 1 Block with 512 Threads
+iteration 0: 0.25600350500000957 on process 1
+iteration 0: 0.25600510200000315 on process 0
+Block (512) Broadcast mean: 0.11300935559999772
+Block (512) Broadcast std: 0.00019261004591464425
+Broadcast for 1 Block with 1024 Threads
+iteration 0: 0.07141003300000648 on process 1
+iteration 0: 0.07141124400000365 on process 0
+Block (1024) Broadcast mean: 0.07144723345000017
+Block (1024) Broadcast std: 3.052754894263514e-05
+Broadcast for 240 blocks with 512 Threads (max gridsize)
+iteration 0: 0.008104110999994418 on process 1
+iteration 0: 0.00810400800000366 on process 0
+Broadcast (max grid) mean: 0.008155658549998179
+Broadcast (max grid) std: 4.1521586875843344e-05
+Broadcast 2D for 240 blocks with 512 Threads (max gridsize)
+iteration 0: 0.2591808950000143 on process 1
+iteration 0: 0.2591820499999926 on process 0
+Broadcast 2D (max grid) mean: 0.009331228499999612
+Broadcast 2D (max grid) std: 0.00024550018517385054
+Broadcast with NCCL
+iteration 0: 0.008894580000003316 on process 1
+iteration 0: 0.008881634999994503 on process 0
+Broadcast (NCCL) mean: 0.007544654950001473
+Broadcast (NCCL) std: 9.765574311740123e-06
+AlltoAll for 1 Block with 512 Threads
+iteration 0: 0.36834826000000476 on process 1
+iteration 0: 0.3683481320000226 on process 0
+Block (512) AlltoAll mean: 0.14793719420000287
+Block (512) AlltoAll std: 0.00020736160600588977
+AlltoAll for 1 Block with 1024 Threads
+iteration 0: 0.0970128099999954 on process 1
+iteration 0: 0.09701186500001313 on process 0
+Block (1024) AlltoAll mean: 0.09700370329999827
+Block (1024) AlltoAll std: 6.659634461569637e-05
+AlltoAll for 320 blocks with 256 Threads (max gridsize)
+iteration 0: 0.005333635999988928 on process 1
+iteration 0: 0.00533208900000659 on process 0
+AlltoAll (max blocks) mean: 0.005369806399998822
+AlltoAll (max blocks) std: 3.592338696302283e-05
+AlltoAll 2D for 320 blocks with 256 Threads (max gridsize)
+iteration 0: 0.26522569799999474 on process 1
+iteration 0: 0.26522537999997553 on process 0
+AlltoAll 2D (max blocks) mean: 0.005627559650002922
+AlltoAll 2D (max blocks) std: 3.1502583549936066e-05
+AlltoAll with NCCL
+iteration 0: 0.04137365299999374 on process 1
+iteration 0: 0.041367737000001625 on process 0
+AlltoAll (NCCL) mean: 0.00453387060000523
+AlltoAll (NCCL) std: 9.004107809247861e-06
+
+
+
+
+Starting NVSHMEM evaluation for array size 128 MB:
+Iteration 0: 0.003738 on process 1
+Iteration 0: 0.003788 on process 0
+Host Reduction mean: 0.002278
+Host Reduction stddev: 0.000012
+*** max blocks ***
+blockdim=32, maxblocks= 960, threads=30720
+blockdim=64, maxblocks= 480, threads=30720
+blockdim=256, maxblocks= 80, threads=20480
+blockdim=512, maxblocks= 0, threads=0
+blockdim=768, maxblocks= 0, threads=0
+blockdim=1024, maxblocks= 0, threads=0
+*****************
+Iteration 0: 0.095368 on process 1
+Iteration 0: 0.095368 on process 0
+Block Reduction mean: 0.094981
+Block Reduction stddev: 0.000155
+Iteration 0: 0.002011 on process 1
+Iteration 0: 0.002008 on process 0
+Host Broadcast mean: 0.002012
+Host Broadcast stddev: 0.000004
+*** max blocks ***
+blockdim=32, maxblocks= 1280, threads=40960
+blockdim=64, maxblocks= 640, threads=40960
+blockdim=256, maxblocks= 160, threads=40960
+blockdim=512, maxblocks= 80, threads=40960
+blockdim=768, maxblocks= 0, threads=0
+blockdim=1024, maxblocks= 0, threads=0
+*****************
+Iteration 0: 0.007264 on process 1
+Iteration 0: 0.014526 on process 0
+Block Broadcast mean: 0.010995
+Block Broadcast stddev: 0.003772
+Iteration 0: 0.270080 on process 1
+Iteration 0: 0.270074 on process 0
+Iteration 1: 0.001404 on process 1
+Iteration 1: 0.001404 on process 0
+Host AlltoAll mean: 0.001399
+Host AlltoAll stddev: 0.000004
+*** max blocks ***
+blockdim=32, maxblocks= 1600, threads=51200
+blockdim=64, maxblocks= 800, threads=51200
+blockdim=256, maxblocks= 160, threads=40960
+blockdim=512, maxblocks= 80, threads=40960
+blockdim=768, maxblocks= 0, threads=0
+blockdim=1024, maxblocks= 0, threads=0
+*****************
+Iteration 0: 0.007845 on process 1
+Iteration 0: 0.007845 on process 0
+Block AlltoAll mean: 0.007651
+Block AlltoAll stddev: 0.000027
+
+
+
+Starting NVSHMEM evaluation for array size 512 MB:
+Iteration 0: 0.009996 on process 1
+Iteration 0: 0.009986 on process 0
+Host Reduction mean: 0.008467
+Host Reduction stddev: 0.000053
+*** max blocks ***
+blockdim=32, maxblocks= 960, threads=30720
+blockdim=64, maxblocks= 480, threads=30720
+blockdim=256, maxblocks= 80, threads=20480
+blockdim=512, maxblocks= 0, threads=0
+blockdim=768, maxblocks= 0, threads=0
+blockdim=1024, maxblocks= 0, threads=0
+*****************
+Iteration 0: 0.382592 on process 1
+Iteration 0: 0.382592 on process 0
+Block Reduction mean: 0.382644
+Block Reduction stddev: 0.000475
+Iteration 0: 0.007685 on process 1
+Iteration 0: 0.007669 on process 0
+Host Broadcast mean: 0.007681
+Host Broadcast stddev: 0.000016
+*** max blocks ***
+blockdim=32, maxblocks= 1280, threads=40960
+blockdim=64, maxblocks= 640, threads=40960
+blockdim=256, maxblocks= 160, threads=40960
+blockdim=512, maxblocks= 80, threads=40960
+blockdim=768, maxblocks= 0, threads=0
+blockdim=1024, maxblocks= 0, threads=0
+*****************
+Iteration 0: 0.028986 on process 1
+Iteration 0: 0.059464 on process 0
+Block Broadcast mean: 0.044645
+Block Broadcast stddev: 0.015516
+Iteration 0: 0.290205 on process 1
+Iteration 0: 0.290203 on process 0
+Iteration 1: 0.004587 on process 1
+Iteration 1: 0.004591 on process 0
+Host AlltoAll mean: 0.004579
+Host AlltoAll stddev: 0.000012
+*** max blocks ***
+blockdim=32, maxblocks= 1600, threads=51200
+blockdim=64, maxblocks= 800, threads=51200
+blockdim=256, maxblocks= 160, threads=40960
+blockdim=512, maxblocks= 80, threads=40960
+blockdim=768, maxblocks= 0, threads=0
+blockdim=1024, maxblocks= 0, threads=0
+*****************
+Iteration 0: 0.031200 on process 1
+Iteration 0: 0.031200 on process 0
+Block AlltoAll mean: 0.031054
+Block AlltoAll stddev: 0.000170
