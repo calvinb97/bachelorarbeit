@@ -59,7 +59,7 @@ num_devices = 2
 nccl_comm = NCCLBackend(num_devices, rank, use_mpi=True)
 
 
-ary_size = 1000 * 1000000 // 4
+ary_size = 128 * 1000000
 # ary_size = 16384 * 10000
 # ary_size = 20
 

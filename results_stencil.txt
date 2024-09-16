@@ -3,3 +3,29 @@ Iteration 0: 0.046524 on process 1
 Iteration 0: 0.046533 on process 0
 Stencil mean: 0.044178
 Stencil std: 0.001122
+
+
+Starting evaluation of Stencil with GPU barrier
+iteration 0: 0.978674808 on process 1
+iteration 0: 0.978678431 on process 0
+Stencil GPU-Barrier: 0.05059929304999997
+Stencil GPU-Barrier: 4.92043290590285e-05
+Starting evaluation of Stencil with on-stream barrier
+iteration 0: 1.5996733399999998 on process 1
+iteration 0: 1.5844207009999998 on process 0
+Stencil On-Stream-Barrier: 1.2122045066500005
+Stencil On-Stream-Barrier: 0.0025918443500318328
+Starting evaluation of Stencil with MPI barrier
+iteration 0: 0.9321351880000002 on process 1
+iteration 0: 0.9321345510000008 on process 0
+Stencil MPI-Barrier: 0.9363441191999998
+Stencil MPI-Barrier: 0.0015850261931951073
+
+Starting evaluation of Stencil with MPI communication
+iteration 0: 2.952354173 on process 1
+iteration 0: 2.952357534 on process 0
+Stencil MPI mean: 2.3608284561000006
+Stencil MPI std: 0.00083677218672374
+
+Stencil NCCL mean: 2.20455436295
+Stencil NCCL std: 0.00837133866823259
