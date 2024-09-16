@@ -1,0 +1,5 @@
+Starting NVSHMEM Stencil-Kernel with 2000 iterations
+Iteration 0: 0.046524 on process 1
+Iteration 0: 0.046533 on process 0
+Stencil mean: 0.044178
+Stencil std: 0.001122

@@ -103,7 +103,8 @@ void calcMetrics(double* timeResults, int rank, double* meanResult, double* stdd
 }
 
 void evalMaxCoopBlocks(const void* kernel, void** args) {
-    const int blockdims[] = {32, 64, 256, 512, 544, 1024};
+    const int blockdims[] = {32, 64, 256, 512, 768, 1024};
+    printf("*** max blocks ***\n");
     for (int i = 0; i < 6; i++) {
         dim3 dimBlock(blockdims[i]);
         int gridsize = 0;
@@ -111,6 +112,7 @@ void evalMaxCoopBlocks(const void* kernel, void** args) {
         int threads = gridsize * blockdims[i];
         printf("blockdim=%d, maxblocks= %d, threads=%d\n", blockdims[i], gridsize, threads);
     }
+    printf("*****************\n");
 }
 
 
@@ -148,6 +150,11 @@ void evalBlockReduction(int* result, int* array, int* hostResult, int* hostCalcu
     	int ary_size, double* timeResults, int rank) {
     double start_time, end_time, time;
     void *args[] = {&array, &result, &ary_size};
+
+    if (rank == 0) {
+        evalMaxCoopBlocks((const void*) ReductionKernel, args);
+    }
+
 
     // using one block with max blockdim of 256 threads
     dim3 dimBlock(256);
@@ -214,9 +221,9 @@ void evalBlockBroadcast(int* dest, int* array, int* hostArray, int* hostDestArra
     double start_time, end_time, time;
     void *args[] = {&array, &dest, &ary_size};
 
-    // if (rank == 0) {
-    //     evalMaxCoopBlocks((const void*) BroadcastKernel, args);
-    // }
+    if (rank == 0) {
+        evalMaxCoopBlocks((const void*) BroadcastKernel, args);
+    }
 
     
     // using one block with max blockdim of 512 threads
@@ -284,9 +291,9 @@ void evalBlockAlltoAll(int* dest, int* array, int* hostCalculatedResult, int* ho
     double start_time, end_time, time;
     void *args[] = {&array, &dest, &ary_size};
 
-    // if (rank == 0) {
-    //     evalMaxCoopBlocks((const void*) AlltoAllKernel, args);
-    // }
+    if (rank == 0) {
+        evalMaxCoopBlocks((const void*) AlltoAllKernel, args);
+    }
 
     // using one block with max blockdim of 512 threads
     dim3 dimBlock(512);
@@ -406,27 +413,15 @@ int main(int argc, char* argv[]) {
     nvshmemx_init_attr(NVSHMEMX_INIT_WITH_MPI_COMM, &attr);
     int my_pe = nvshmem_my_pe();
 
-    int ary_size = 16384 * 10000;
+    int ary_size = 32 * 1000000;
     
-    MPI_Barrier(MPI_COMM_WORLD);
-    if (rank == 0) {
-        printf("\nReduction for array size %d bytes:\n", ary_size * sizeof(int));
-    }
-    
-    evalReduction(ary_size, rank);
 
-    MPI_Barrier(MPI_COMM_WORLD);
     if (rank == 0) {
-        printf("\nBroadcast for array size %d bytes:\n", ary_size * sizeof(int));
+        printf("\nStarting NVSHMEM evaluation for array size %d MB:\n", ary_size * sizeof(int) / 1000000);
     }
     
-    evalBroadcast(ary_size, rank);
-
-    MPI_Barrier(MPI_COMM_WORLD);
-    if (rank == 0) {
-        printf("\nAlltoAll for array size %d bytes:\n", ary_size * sizeof(int));
-    }
-    
+    evalReduction(ary_size, rank);  
+    evalBroadcast(ary_size, rank);    
     evalAlltoAll(ary_size, rank);
 
 
