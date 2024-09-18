@@ -37,6 +37,11 @@ def wait_until_ptxtest3(ary, idx, val):
 def wait_until(ary, idx, val):
     """
     Busy-waits until condition is true.
+
+    Params:
+    ary: nbshmem symmetric allocation
+    idx: index in array
+    val: value to be waited for
     """
     while ary[idx] != val:
         cuda.threadfence()
@@ -47,6 +52,11 @@ def wait_until_bool(ary, idx, val):
     """
     Busy-waits until condition is true.
     Implemented with volatile memory access in C.
+
+    Params:
+    ary: nbshmem symmetric allocation
+    idx: index in array
+    val: value to be waited for
     """
     ary_ptr = ffi.from_buffer(ary)
     wait_until_bool_cu(ary_ptr, idx, val)
@@ -58,6 +68,11 @@ def barrier_all(sync_shmem, my_pe, npes):
     Barrier for all threads on all GPUs.
     sync_shmem array is organized as follows:
     | phase | flag GPU 1 | ... | flag GPU n |
+
+    Params:
+    sync_shmem: symmetric allocation of boolean synchronization array
+    my_pe: PE number
+    npes: number of PEs
     """
     x, y = cuda.grid(2)
     g = cuda.cg.this_grid()
@@ -96,6 +111,11 @@ def barrier_all_volatile(sync_shmem, my_pe, npes):
     Barrier for all threads on all GPUs.
     sync_shmem array is organized as follows:
     | phase | flag GPU 1 | ... | flag GPU n |
+
+    Params:
+    sync_shmem: symmetric allocation of boolean synchronization array
+    my_pe: PE number
+    npes: number of PEs
     """
     x, y = cuda.grid(2)
     g = cuda.cg.this_grid()
@@ -159,6 +179,17 @@ def get_num_threads_in_grid():
 
 @cuda.jit(device=True)
 def broadcast_1d(dest, src, elems, root, my_pe, sync):
+    """
+    Collective broadcast for 1d-array
+
+    Params:
+    dest: symmetric allocation of destination array
+    src: symmetric allocation of source array
+    elems: number of elements in array
+    root: PE number of root GPU
+    my_pe: PE number
+    sync: symmetric allocation of boolean synchronization array
+    """
     if root == my_pe:
         src = src[my_pe]
         idx = get_1d_threadidx_in_grid()
@@ -171,6 +202,17 @@ def broadcast_1d(dest, src, elems, root, my_pe, sync):
 
 @cuda.jit(device=True)
 def broadcast_2d(dest, src, rows, root, my_pe, sync):
+    """
+    Collective broadcast for 2d-array
+
+    Params:
+    dest: symmetric allocation of destination array
+    src: symmetric allocation of source array
+    rows: number of rows to be broadcasted
+    root: PE number of root GPU
+    my_pe: PE number
+    sync: symmetric allocation of boolean synchronization array
+    """
     if root == my_pe:
         src = src[my_pe]
         idx = get_1d_threadidx_in_grid()
@@ -185,6 +227,16 @@ def broadcast_2d(dest, src, rows, root, my_pe, sync):
 
 @cuda.jit(device=True)
 def alltoall_1d(dest, src, elems, my_pe, sync):
+    """
+    Collective alltoall for 1d-array
+
+    Params:
+    dest: symmetric allocation of destination array
+    src: symmetric allocation of source array
+    elems: number of elements per chunk
+    my_pe: PE number
+    sync: symmetric allocation of boolean synchronization array
+    """
     idx = get_1d_threadidx_in_grid()
     numthreads = get_num_threads_in_grid()
     src = src[my_pe]
@@ -198,6 +250,16 @@ def alltoall_1d(dest, src, elems, my_pe, sync):
 
 @cuda.jit(device=True)
 def alltoall_2d(dest, src, rows, my_pe, sync):
+    """
+    Collective alltoall for 2d-array
+
+    Params:
+    dest: symmetric allocation of destination array
+    src: symmetric allocation of source array
+    rows: number of rows per chunk
+    my_pe: PE number
+    sync: symmetric allocation of boolean synchronization array
+    """
     idx = get_1d_threadidx_in_grid()
     numthreads = get_num_threads_in_grid()
     src = src[my_pe]
@@ -213,6 +275,16 @@ def alltoall_2d(dest, src, rows, my_pe, sync):
 
 @cuda.jit(device=True)
 def allreduce_1d_sum(dest, src, elems, my_pe, sync):
+    """
+    Collective allreduce for 1d-array
+
+    Params:
+    dest: symmetric allocation of destination array
+    src: symmetric allocation of source array
+    elems: number of elements in array
+    my_pe: PE number
+    sync: symmetric allocation of boolean synchronization array
+    """
     dest = dest[my_pe]
     idx = get_1d_threadidx_in_grid()
     numthreads = get_num_threads_in_grid()
@@ -227,6 +299,16 @@ def allreduce_1d_sum(dest, src, elems, my_pe, sync):
 
 @cuda.jit(device=True)
 def allreduce_2d_sum(dest, src, rows, my_pe, sync):
+    """
+    Collective allreduce for 2d-array
+
+    Params:
+    dest: symmetric allocation of destination array
+    src: symmetric allocation of source array
+    rows: number of rows in array
+    my_pe: PE number
+    sync: symmetric allocation of boolean synchronization array
+    """
     dest = dest[my_pe]
     idx = get_1d_threadidx_in_grid()
     numthreads = get_num_threads_in_grid()
@@ -245,6 +327,17 @@ def allreduce_2d_sum(dest, src, rows, my_pe, sync):
 
 @cuda.jit(device=True)
 def allreduce_1d_sum_bcast(dest, src, elems, my_pe, sync):
+    """
+    Collective allreduce for 1d-array.
+    Implemented with broadcast.
+
+    Params:
+    dest: symmetric allocation of destination array
+    src: symmetric allocation of source array
+    elems: number of elements in array
+    my_pe: PE number
+    sync: symmetric allocation of boolean synchronization array
+    """
     g = cuda.cg.this_grid()
     my_dest = dest[my_pe]
     idx = get_1d_threadidx_in_grid()

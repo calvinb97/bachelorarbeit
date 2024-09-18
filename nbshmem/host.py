@@ -166,5 +166,13 @@ def barrier_all_host():
 
 
 def barrier_all_host_on_stream(sync_shmem, stream, npes):
+    """
+    Collective function that synchronizes all PEs in a GPU kernel on stream
+
+    Params:
+    sync_shmem: symmetric allocation of boolean synchronization array
+    stream: stream for the barrierer to be put on
+    npes: number of PEs
+    """
     my_pe = ctx.mpi.Get_rank()
     device.barrier_all_kernel[1, 32, stream](sync_shmem, my_pe, npes)

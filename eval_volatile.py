@@ -13,7 +13,7 @@ nbshmem_cu = os.path.join(basedir, 'nbshmem', 'nbshmem.cu')
 def barrier_kernel(sync_shmem, my_pe):
     for i in range(1000):
         if my_pe == 0:
-            cuda.nanosleep(10000000)
+            cuda.nanosleep(100000)
         nbshmem.barrier_all(sync_shmem, my_pe, 2)
 
 
@@ -21,7 +21,7 @@ def barrier_kernel(sync_shmem, my_pe):
 def barrier_volatile_kernel(sync_shmem, my_pe):
     for i in range(1000):
         if my_pe == 0:
-            cuda.nanosleep(10000000)
+            cuda.nanosleep(100000)
         nbshmem.barrier_all_volatile(sync_shmem, my_pe, 2)
 
 
